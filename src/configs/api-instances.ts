@@ -1,8 +1,22 @@
 import ApiService from "./http-axios-config";
 
-// URL base da API Laravel
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
+// Determinar URL base da API baseada no ambiente
+const getApiBaseUrl = () => {
+  const env = import.meta.env.VITE_ENV || "development";
+
+  if (env === "production") {
+    return (
+      import.meta.env.VITE_API_BASE_URL_PROD ||
+      "http://pdfworksbackend.codevila.com.br/api/v1"
+    );
+  }
+
+  return (
+    import.meta.env.VITE_API_BASE_URL_DEV || "http://localhost:8000/api/v1"
+  );
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const createApiInstance = (baseURL: string, withAuthToken = false) => {
   return new ApiService(baseURL, withAuthToken).getInstance();
