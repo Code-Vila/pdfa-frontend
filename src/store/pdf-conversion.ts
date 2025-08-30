@@ -86,13 +86,13 @@ export const usePdfConversionStore = defineStore("pdfConversion", () => {
         uploadState.value.files.forEach((fileProgress, index) => {
           fileProgress.status = "completed";
           fileProgress.progress = 100;
-          fileProgress.conversionId = result.data[index]?.id;
+          fileProgress.conversionId = result.data.conversions[index]?.id;
         });
 
         uploadState.value.completed = uploadState.value.files.length;
 
         // Adicionar às conversões
-        conversions.value.unshift(...result.data);
+        conversions.value.unshift(...result.data.conversions);
 
         // Atualizar estatísticas
         await fetchStats();
@@ -149,7 +149,7 @@ export const usePdfConversionStore = defineStore("pdfConversion", () => {
       const result = await pdfConversionService.getConversionHistory(filters);
 
       if (result.success && "data" in result) {
-        conversions.value = result.data;
+        conversions.value = result.data.data; // result.data é ConversionHistoryResponse, que tem .data
       }
     } catch (error) {
       console.error("Erro ao buscar conversões:", error);

@@ -105,7 +105,7 @@ const expansionService = {
    */
   async cancelExpansionRequest(): Promise<ApiResponse<any> | ApiErrorResponse> {
     try {
-      const response = await HttpPdfaApi.delete("/expansion/cancel");
+      const response = await HttpPdfaApi.delete("/pdf/expansion/cancel");
       return response.data as ApiResponse<any>;
     } catch (error: any) {
       if (error.response?.data) {

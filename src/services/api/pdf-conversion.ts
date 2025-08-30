@@ -2,10 +2,12 @@ import { HttpPdfaApi } from "@/configs/api-instances";
 import type {
   PdfConversionRequest,
   PdfConversionResponse,
+  PdfConversionApiResponse,
   ApiResponse,
   ApiErrorResponse,
   PdfStatsResponse,
   ConversionFilters,
+  ConversionHistoryResponse,
   HealthCheckResponse,
 } from "@/types/api";
 
@@ -15,7 +17,7 @@ const pdfConversionService = {
    */
   async convertToPdfA(
     request: PdfConversionRequest
-  ): Promise<ApiResponse<PdfConversionResponse[]> | ApiErrorResponse> {
+  ): Promise<ApiResponse<PdfConversionApiResponse> | ApiErrorResponse> {
     try {
       const formData = new FormData();
 
@@ -31,7 +33,7 @@ const pdfConversionService = {
         timeout: 300000, // 5 minutos para upload
       });
 
-      return response.data as ApiResponse<PdfConversionResponse[]>;
+      return response.data as ApiResponse<PdfConversionApiResponse>;
     } catch (error: any) {
       if (error.response?.data) {
         return error.response.data as ApiErrorResponse;
@@ -94,7 +96,7 @@ const pdfConversionService = {
    */
   async getConversionHistory(
     filters?: ConversionFilters
-  ): Promise<ApiResponse<PdfConversionResponse[]> | ApiErrorResponse> {
+  ): Promise<ApiResponse<ConversionHistoryResponse> | ApiErrorResponse> {
     try {
       const params = new URLSearchParams();
 
@@ -104,11 +106,15 @@ const pdfConversionService = {
       if (filters?.status) params.append("status", filters.status);
       if (filters?.date_from) params.append("date_from", filters.date_from);
       if (filters?.date_to) params.append("date_to", filters.date_to);
+      if (filters?.filename) params.append("filename", filters.filename);
+      if (filters?.order_by) params.append("order_by", filters.order_by);
+      if (filters?.order_direction)
+        params.append("order_direction", filters.order_direction);
 
       const response = await HttpPdfaApi.get(
         `/pdf/history?${params.toString()}`
       );
-      return response.data as ApiResponse<PdfConversionResponse[]>;
+      return response.data as ApiResponse<ConversionHistoryResponse>;
     } catch (error: any) {
       if (error.response?.data) {
         return error.response.data as ApiErrorResponse;

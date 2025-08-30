@@ -70,6 +70,7 @@ export interface ExpansionRequest {
   email: string;
   company?: string;
   justification: string;
+  requested_limit: number;
 }
 
 export interface PdfValidationRequest {
@@ -98,14 +99,48 @@ export interface ApiErrorResponse {
 
 export interface PdfConversionResponse {
   id: number;
-  original_filename: string;
-  converted_filename: string;
   status: string;
-  processing_time?: number;
-  original_size: number;
-  converted_size: number;
+  original_filename: string;
+  converted_filename?: string;
+  file_info: {
+    original_size: number;
+    converted_size?: number;
+    formatted_original_size: string;
+    formatted_converted_size?: string;
+  };
+  processing: {
+    processing_time: string;
+    started_at: string;
+    completed_at?: string;
+  };
   download_url?: string;
+  error_message?: string;
   created_at: string;
+  updated_at: string;
+}
+
+export interface ConversionHistoryResponse {
+  data: PdfConversionResponse[];
+  summary: {
+    total_conversions: number;
+    completed_conversions: number;
+    failed_conversions: number;
+    pending_conversions: number;
+    total_original_size: number;
+    total_converted_size: number;
+    average_processing_time: number;
+  };
+}
+
+export interface PdfConversionApiResponse {
+  conversions: PdfConversionResponse[];
+  errors: any[];
+  usage_info: {
+    conversions_count: number;
+    daily_limit: number;
+    remaining_conversions: number;
+    is_expanded: boolean;
+  };
 }
 
 export interface PdfStatsResponse {
@@ -158,6 +193,9 @@ export interface ConversionFilters extends PaginationParams {
   status?: PdfConversion["status"];
   date_from?: string;
   date_to?: string;
+  filename?: string;
+  order_by?: "created_at" | "original_filename" | "status" | "processing_time";
+  order_direction?: "asc" | "desc";
 }
 
 export interface ExpansionHistoryFilters extends PaginationParams {

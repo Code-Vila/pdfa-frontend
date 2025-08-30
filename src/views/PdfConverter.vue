@@ -105,15 +105,33 @@
                 </div>
               </div>
 
+              <!-- CAPTCHA Anti-Bot -->
+              <div v-if="selectedFiles.length > 0" class="mt-4">
+                <MathCaptcha
+                  v-model="isCaptchaCorrect"
+                  @correct="onCaptchaCorrect"
+                  @incorrect="onCaptchaIncorrect"
+                  ref="captchaRef"
+                />
+              </div>
+
+              <!-- Convert Button -->
+
               <!-- Convert Button -->
               <div class="mt-6 text-center">
                 <button
                   @click="convertFiles"
-                  :disabled="selectedFiles.length === 0 || isConverting"
+                  :disabled="
+                    selectedFiles.length === 0 ||
+                    isConverting ||
+                    !isCaptchaCorrect
+                  "
                   class="btn-primary"
                   :class="{
                     'opacity-50 cursor-not-allowed':
-                      selectedFiles.length === 0 || isConverting,
+                      selectedFiles.length === 0 ||
+                      isConverting ||
+                      !isCaptchaCorrect,
                   }"
                 >
                   <svg
@@ -148,19 +166,25 @@
         <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="card">
             <div class="card-body text-center">
-              <div class="text-2xl font-bold text-primary-600">10</div>
+              <div class="text-2xl font-bold text-primary-600">
+                {{ stats?.daily_limit || 10 }}
+              </div>
               <div class="text-sm text-gray-500">Limite Diário</div>
             </div>
           </div>
           <div class="card">
             <div class="card-body text-center">
-              <div class="text-2xl font-bold text-green-600">3</div>
+              <div class="text-2xl font-bold text-green-600">
+                {{ stats?.today_conversions || 0 }}
+              </div>
               <div class="text-sm text-gray-500">Utilizadas Hoje</div>
             </div>
           </div>
           <div class="card">
             <div class="card-body text-center">
-              <div class="text-2xl font-bold text-gray-400">7</div>
+              <div class="text-2xl font-bold text-gray-400">
+                {{ stats?.remaining_conversions || 0 }}
+              </div>
               <div class="text-sm text-gray-500">Restantes</div>
             </div>
           </div>
@@ -181,18 +205,54 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useToast } from "vue-toastification";
+import pdfConversionService from "@/services/api/pdf-conversion";
+import type { PdfStatsResponse } from "@/types/api";
+import MathCaptcha from "@/components/MathCaptcha.vue";
 
 const toast = useToast();
 const selectedFiles = ref<File[]>([]);
 const isConverting = ref(false);
 const fileInputRef = ref<HTMLInputElement>();
+const stats = ref<PdfStatsResponse | null>(null);
+
+// CAPTCHA Anti-Bot
+const isCaptchaCorrect = ref(false);
+const captchaRef = ref<InstanceType<typeof MathCaptcha>>();
+
+// Carregar estatísticas ao montar o componente
+onMounted(async () => {
+  await loadStats();
+  // O CAPTCHA gera automaticamente a primeira pergunta
+});
+
+const loadStats = async () => {
+  try {
+    const response = await pdfConversionService.getUserStats();
+    if (response.success) {
+      stats.value = response.data;
+    }
+  } catch (error) {
+    console.error("Erro ao carregar estatísticas:", error);
+  }
+};
+
+// Funções do CAPTCHA
+const onCaptchaCorrect = () => {
+  isCaptchaCorrect.value = true;
+};
+
+const onCaptchaIncorrect = () => {
+  isCaptchaCorrect.value = false;
+};
 
 const handleFileSelect = (event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.files) {
     addFiles(Array.from(target.files));
+    // Reset do input para permitir selecionar o mesmo arquivo novamente
+    target.value = "";
   }
 };
 
@@ -214,6 +274,11 @@ const addFiles = (files: File[]) => {
 
 const removeFile = (index: number) => {
   selectedFiles.value.splice(index, 1);
+
+  // Se não há mais arquivos, reset do input
+  if (selectedFiles.value.length === 0 && fileInputRef.value) {
+    fileInputRef.value.value = "";
+  }
 };
 
 const formatFileSize = (bytes: number): string => {
@@ -230,14 +295,71 @@ const convertFiles = async () => {
   isConverting.value = true;
 
   try {
-    // Simular conversão por enquanto
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    toast.success(
-      `${selectedFiles.value.length} arquivo(s) convertido(s) com sucesso!`
-    );
-    selectedFiles.value = [];
-  } catch (error) {
-    toast.error("Erro ao converter arquivos");
+    // Usar o serviço real de conversão
+    const response = await pdfConversionService.convertToPdfA({
+      files: selectedFiles.value,
+    });
+
+    if (response.success && response.data && response.data.conversions) {
+      toast.success(
+        `${response.data.conversions.length} arquivo(s) convertido(s) com sucesso!`
+      );
+
+      // Fazer download dos arquivos convertidos
+      for (const conversion of response.data.conversions) {
+        if (conversion.download_url && conversion.converted_filename) {
+          // Criar link temporário para download
+          const link = document.createElement("a");
+          link.href = conversion.download_url;
+          link.download = conversion.converted_filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
+
+      selectedFiles.value = [];
+
+      // Reset do input de arquivo para permitir selecionar o mesmo arquivo novamente
+      if (fileInputRef.value) {
+        fileInputRef.value.value = "";
+      }
+
+      // Gerar nova pergunta do CAPTCHA para próxima conversão
+      captchaRef.value?.generateNewQuestion();
+
+      // Recarregar estatísticas após conversão
+      await loadStats();
+    } else {
+      // Tratar erro da API
+      const errorResponse = response as any; // Type assertion para acessar errors
+      const errorMessage =
+        errorResponse.message || "Erro ao converter arquivos";
+      toast.error(errorMessage);
+
+      // Se há detalhes de validação, mostrar também
+      if (errorResponse.errors) {
+        Object.values(errorResponse.errors)
+          .flat()
+          .forEach((error: any) => {
+            toast.error(error);
+          });
+      }
+    }
+  } catch (error: any) {
+    console.error("Erro na conversão:", error);
+
+    if (error.response?.status === 429) {
+      toast.error(
+        "Limite diário de conversões atingido. Tente novamente amanhã."
+      );
+    } else if (error.response?.status === 413) {
+      toast.error("Arquivo muito grande. Tamanho máximo: 10MB por arquivo.");
+    } else {
+      toast.error(
+        "Erro ao converter arquivos. Verifique sua conexão e tente novamente."
+      );
+    }
   } finally {
     isConverting.value = false;
   }
