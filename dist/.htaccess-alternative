@@ -1,0 +1,13 @@
+# Teste se mod_mime está ativo
+
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType text/css .css
+    AddType image/svg+xml .svg
+</IfModule>
+
+# Forçar interpretação
+
+<Files "\*.js">
+ForceType application/javascript
+</Files>

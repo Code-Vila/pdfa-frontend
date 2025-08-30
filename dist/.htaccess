@@ -1,29 +1,52 @@
-# Configurações de MIME type para arquivos JavaScript e CSS
+# === MIME TYPES ESSENCIAIS ===
+# Forçar MIME types corretos para arquivos JavaScript e CSS
+<Files "*.js">
+    Header set Content-Type "application/javascript; charset=utf-8"
+    ForceType application/javascript
+</Files>
+
+<Files "*.css">
+    Header set Content-Type "text/css; charset=utf-8"
+    ForceType text/css
+</Files>
+
+<Files "*.svg">
+    Header set Content-Type "image/svg+xml; charset=utf-8"
+    ForceType image/svg+xml
+</Files>
+
+# Alternativa usando AddType (caso acima não funcione)
 AddType application/javascript .js
 AddType text/css .css
 AddType image/svg+xml .svg
 
-# Configurações para SPA
+# === CONFIGURAÇÃO SPA ===
 Options -MultiViews
 RewriteEngine On
+
+# Permitir acesso a arquivos que existem
 RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^ index.html [QR,L]
+RewriteCond %{REQUEST_FILENAME} !-d
 
-# Headers de cache para melhor performance
-<FilesMatch "\.(js|css|svg|ico|png|jpg|jpeg|gif|webp)$">
-    ExpiresActive On
-    ExpiresDefault "access plus 1 month"
-</FilesMatch>
+# Redirecionar tudo para index.html
+RewriteRule . /index.html [L]
 
-# Compressão gzip se disponível
+# === HEADERS DE SEGURANÇA ===
+<IfModule mod_headers.c>
+    # CORS básico se necessário
+    Header set Access-Control-Allow-Origin "*"
+    
+    # Cache para assets
+    <FilesMatch "\.(js|css|svg|ico|png|jpg|jpeg|gif|webp)$">
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+</IfModule>
+
+# === COMPRESSÃO ===
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
-    AddOutputFilterByType DEFLATE text/xml
     AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE application/xml
-    AddOutputFilterByType DEFLATE application/xhtml+xml
-    AddOutputFilterByType DEFLATE application/rss+xml
     AddOutputFilterByType DEFLATE application/javascript
-    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
 </IfModule>
